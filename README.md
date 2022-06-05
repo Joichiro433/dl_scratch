@@ -8,9 +8,17 @@ https://amzn.to/3HX0hOi
 
 ## Installation
 
-```sh
-poetry add git+https://github.com/Joichiro433/Deep_learning_from_scratch.git#main
-```
+* poetryの場合
+
+  ```sh
+  poetry init
+  ```
+
+* pipの場合
+
+  ```sh
+  pip install git+https://github.com/Joichiro433/dl_scratch.git
+  ```
 
 ## 感想
 
