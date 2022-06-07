@@ -1,10 +1,12 @@
-# coding: utf-8
-import sys, os
-sys.path.append(os.pardir)  # 親ディレクトリのファイルをインポートするための設定
+import imp
+from typing import List, Dict, Optional, Union
+
 import numpy as np
+from nptyping import NDArray
+
 from collections import OrderedDict
-from common.layers import *
-from common.gradient import numerical_gradient
+from dl_scratch.common.layers import *
+from dl_scratch.common.gradient import numerical_gradient
 
 
 class MultiLayerNet:
@@ -21,33 +23,38 @@ class MultiLayerNet:
         'sigmoid'または'xavier'を指定した場合は「Xavierの初期値」を設定
     weight_decay_lambda : Weight Decay（L2ノルム）の強さ
     """
-    def __init__(self, input_size, hidden_size_list, output_size,
-                 activation='relu', weight_init_std='relu', weight_decay_lambda=0):
-        self.input_size = input_size
-        self.output_size = output_size
-        self.hidden_size_list = hidden_size_list
-        self.hidden_layer_num = len(hidden_size_list)
-        self.weight_decay_lambda = weight_decay_lambda
-        self.params = {}
+    def __init__(
+            self, 
+            input_size: int, 
+            hidden_size_list: List[int],
+            output_size: int,
+            activation: str = 'relu',
+            weight_init_std : Union[str, float] = 'relu', 
+            weight_decay_lambda: float = 0):
+        self.input_size : int = input_size
+        self.output_size : int = output_size
+        self.hidden_size_list : List[int] = hidden_size_list
+        self.hidden_layer_num : int = len(hidden_size_list)
+        self.weight_decay_lambda : float = weight_decay_lambda
+        self.params : Dict[str, NDArray] = {}
 
         # 重みの初期化
         self.__init_weight(weight_init_std)
 
         # レイヤの生成
+        # 中間層
         activation_layer = {'sigmoid': Sigmoid, 'relu': Relu}
-        self.layers = OrderedDict()
+        self.layers : Dict[str, Layer] = {}
         for idx in range(1, self.hidden_layer_num+1):
-            self.layers['Affine' + str(idx)] = Affine(self.params['W' + str(idx)],
-                                                      self.params['b' + str(idx)])
+            self.layers['Affine' + str(idx)] = Affine(W=self.params['W' + str(idx)], b=self.params['b' + str(idx)])
             self.layers['Activation_function' + str(idx)] = activation_layer[activation]()
 
+        # 出力層
         idx = self.hidden_layer_num + 1
-        self.layers['Affine' + str(idx)] = Affine(self.params['W' + str(idx)],
-            self.params['b' + str(idx)])
-
+        self.layers['Affine' + str(idx)] = Affine(W=self.params['W' + str(idx)], b=self.params['b' + str(idx)])
         self.last_layer = SoftmaxWithLoss()
 
-    def __init_weight(self, weight_init_std):
+    def __init_weight(self, weight_init_std: Union[str, float]) -> None:
         """重みの初期値設定
 
         Parameters
@@ -56,9 +63,9 @@ class MultiLayerNet:
             'relu'または'he'を指定した場合は「Heの初期値」を設定
             'sigmoid'または'xavier'を指定した場合は「Xavierの初期値」を設定
         """
-        all_size_list = [self.input_size] + self.hidden_size_list + [self.output_size]
+        all_size_list : List[int] = [self.input_size] + self.hidden_size_list + [self.output_size]
         for idx in range(1, len(all_size_list)):
-            scale = weight_init_std
+            scale : Union[str, float] = weight_init_std
             if str(weight_init_std).lower() in ('relu', 'he'):
                 scale = np.sqrt(2.0 / all_size_list[idx - 1])  # ReLUを使う場合に推奨される初期値
             elif str(weight_init_std).lower() in ('sigmoid', 'xavier'):
@@ -67,13 +74,13 @@ class MultiLayerNet:
             self.params['W' + str(idx)] = scale * np.random.randn(all_size_list[idx-1], all_size_list[idx])
             self.params['b' + str(idx)] = np.zeros(all_size_list[idx])
 
-    def predict(self, x):
+    def predict(self, x: NDArray) -> NDArray:
         for layer in self.layers.values():
-            x = layer.forward(x)
+            x : NDArray = layer.forward(x)
 
         return x
 
-    def loss(self, x, t):
+    def loss(self, x: NDArray, t: NDArray) -> float:
         """損失関数を求める
 
         Parameters
@@ -85,21 +92,22 @@ class MultiLayerNet:
         -------
         損失関数の値
         """
-        y = self.predict(x)
+        y : NDArray = self.predict(x)
 
-        weight_decay = 0
+        weight_decay : float = 0
         for idx in range(1, self.hidden_layer_num + 2):
-            W = self.params['W' + str(idx)]
+            W : NDArray = self.params['W' + str(idx)]
             weight_decay += 0.5 * self.weight_decay_lambda * np.sum(W ** 2)
 
         return self.last_layer.forward(y, t) + weight_decay
 
-    def accuracy(self, x, t):
-        y = self.predict(x)
+    def accuracy(self, x: NDArray, t: NDArray) -> float:
+        y : NDArray = self.predict(x)
         y = np.argmax(y, axis=1)
-        if t.ndim != 1 : t = np.argmax(t, axis=1)
+        if t.ndim != 1 : 
+            t = np.argmax(t, axis=1)
 
-        accuracy = np.sum(y == t) / float(x.shape[0])
+        accuracy : float = np.sum(y == t) / float(x.shape[0])
         return accuracy
 
     def numerical_gradient(self, x, t):
@@ -125,7 +133,7 @@ class MultiLayerNet:
 
         return grads
 
-    def gradient(self, x, t):
+    def gradient(self, x: NDArray, t: NDArray) -> Dict[str, NDArray]:
         """勾配を求める（誤差逆伝搬法）
 
         Parameters
@@ -144,15 +152,15 @@ class MultiLayerNet:
 
         # backward
         dout = 1
-        dout = self.last_layer.backward(dout)
+        dout : NDArray = self.last_layer.backward(dout)
 
-        layers = list(self.layers.values())
+        layers : List[Layer] = list(self.layers.values())
         layers.reverse()
         for layer in layers:
             dout = layer.backward(dout)
 
         # 設定
-        grads = {}
+        grads : Dict[str, NDArray] = {}
         for idx in range(1, self.hidden_layer_num+2):
             grads['W' + str(idx)] = self.layers['Affine' + str(idx)].dW + self.weight_decay_lambda * self.layers['Affine' + str(idx)].W
             grads['b' + str(idx)] = self.layers['Affine' + str(idx)].db

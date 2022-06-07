@@ -1,48 +1,52 @@
-# coding: utf-8
+from typing import Dict, Optional
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
+from nptyping import NDArray
 
-class SGD:
 
+class Optimizer(metaclass=ABCMeta):
+    @abstractmethod
+    def update(self, params: Dict[str, NDArray], grads: Dict[str, NDArray]) -> None:
+        raise NotImplementedError()
+
+
+class SGD(Optimizer):
     """確率的勾配降下法（Stochastic Gradient Descent）"""
-
-    def __init__(self, lr=0.01):
-        self.lr = lr
+    def __init__(self, lr : float = 0.01) -> None:
+        self.lr : float = lr
         
-    def update(self, params, grads):
+    def update(self, params: Dict[str, NDArray], grads: Dict[str, NDArray]) -> None:
         for key in params.keys():
-            params[key] -= self.lr * grads[key] 
+            params[key] -= self.lr * grads[key]
 
 
-class Momentum:
-
+class Momentum(Optimizer):
     """Momentum SGD"""
-
-    def __init__(self, lr=0.01, momentum=0.9):
-        self.lr = lr
-        self.momentum = momentum
-        self.v = None
+    def __init__(self, lr : float = 0.01, momentum : float = 0.9) -> None:
+        self.lr : float = lr
+        self.momentum : float = momentum
+        self.v : Optional[Dict[str, NDArray]] = None
         
-    def update(self, params, grads):
+    def update(self, params: Dict[str, NDArray], grads: Dict[str, NDArray]) -> None:
         if self.v is None:
             self.v = {}
             for key, val in params.items():                                
                 self.v[key] = np.zeros_like(val)
                 
         for key in params.keys():
-            self.v[key] = self.momentum*self.v[key] - self.lr*grads[key] 
+            self.v[key] = self.momentum*self.v[key] - self.lr*grads[key]
             params[key] += self.v[key]
 
 
-class Nesterov:
-
+class Nesterov(Optimizer):
     """Nesterov's Accelerated Gradient (http://arxiv.org/abs/1212.0901)"""
-
-    def __init__(self, lr=0.01, momentum=0.9):
-        self.lr = lr
-        self.momentum = momentum
-        self.v = None
+    def __init__(self, lr : float = 0.01, momentum : float = 0.9) -> None:
+        self.lr : float = lr
+        self.momentum : float = momentum
+        self.v : Optional[Dict[str, NDArray]] = None
         
-    def update(self, params, grads):
+    def update(self, params: Dict[str, NDArray], grads: Dict[str, NDArray]) -> None:
         if self.v is None:
             self.v = {}
             for key, val in params.items():
@@ -55,15 +59,13 @@ class Nesterov:
             self.v[key] -= self.lr * grads[key]
 
 
-class AdaGrad:
-
+class AdaGrad(Optimizer):
     """AdaGrad"""
-
-    def __init__(self, lr=0.01):
-        self.lr = lr
-        self.h = None
+    def __init__(self, lr : float = 0.01) -> None:
+        self.lr : float = lr
+        self.h : Optional[Dict[str, NDArray]] = None
         
-    def update(self, params, grads):
+    def update(self, params: Dict[str, NDArray], grads: Dict[str, NDArray]) -> None:
         if self.h is None:
             self.h = {}
             for key, val in params.items():
@@ -74,16 +76,14 @@ class AdaGrad:
             params[key] -= self.lr * grads[key] / (np.sqrt(self.h[key]) + 1e-7)
 
 
-class RMSprop:
-
+class RMSprop(Optimizer):
     """RMSprop"""
-
-    def __init__(self, lr=0.01, decay_rate = 0.99):
-        self.lr = lr
-        self.decay_rate = decay_rate
-        self.h = None
+    def __init__(self, lr : float = 0.01, decay_rate : float = 0.99) -> None:
+        self.lr : float = lr
+        self.decay_rate : float = decay_rate
+        self.h : Optional[Dict[str, NDArray]] = None
         
-    def update(self, params, grads):
+    def update(self, params: Dict[str, NDArray], grads: Dict[str, NDArray]) -> None:
         if self.h is None:
             self.h = {}
             for key, val in params.items():
@@ -95,19 +95,17 @@ class RMSprop:
             params[key] -= self.lr * grads[key] / (np.sqrt(self.h[key]) + 1e-7)
 
 
-class Adam:
-
+class Adam(Optimizer):
     """Adam (http://arxiv.org/abs/1412.6980v8)"""
-
-    def __init__(self, lr=0.001, beta1=0.9, beta2=0.999):
-        self.lr = lr
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.iter = 0
-        self.m = None
-        self.v = None
+    def __init__(self, lr : float = 0.001, beta1 : float = 0.9, beta2 : float = 0.999) -> None:
+        self.lr : float = lr
+        self.beta1 : float = beta1
+        self.beta2 : float = beta2
+        self.iter : int = 0
+        self.m : Optional[Dict[str, NDArray]] = None
+        self.v : Optional[Dict[str, NDArray]] = None
         
-    def update(self, params, grads):
+    def update(self, params: Dict[str, NDArray], grads: Dict[str, NDArray]) -> None:
         if self.m is None:
             self.m, self.v = {}, {}
             for key, val in params.items():

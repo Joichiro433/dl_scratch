@@ -1,89 +1,101 @@
-# coding: utf-8
+from turtle import forward
+from typing import Dict, Tuple, Optional
+from abc import ABCMeta, abstractmethod
+
 import numpy as np
-from common.functions import *
-from common.util import im2col, col2im
+from nptyping import NDArray
+
+from dl_scratch.common.functions import *
+from dl_scratch.common.util import im2col, col2im
 
 
-class Relu:
+class Layer(metaclass=ABCMeta):
+    @abstractmethod
+    def forward(self):
+        raise NotImplementedError()
+    
+    @abstractmethod
+    def backward(self):
+        raise NotImplementedError()
+
+
+class Relu(Layer):
     def __init__(self):
-        self.mask = None
+        self.mask : Optional[NDArray[bool]] = None
 
-    def forward(self, x):
+    def forward(self, x: NDArray) -> NDArray:
         self.mask = (x <= 0)
-        out = x.copy()
+        out : NDArray = x.copy()
         out[self.mask] = 0
-
         return out
 
-    def backward(self, dout):
+    def backward(self, dout: NDArray) -> NDArray:
         dout[self.mask] = 0
-        dx = dout
-
+        dx : NDArray = dout
         return dx
 
 
-class Sigmoid:
+class Sigmoid(Layer):
     def __init__(self):
-        self.out = None
+        self.out : Optional[NDArray] = None
 
-    def forward(self, x):
-        out = sigmoid(x)
+    def forward(self, x: NDArray) -> NDArray:
+        out : NDArray = sigmoid(x)
         self.out = out
         return out
 
-    def backward(self, dout):
-        dx = dout * (1.0 - self.out) * self.out
-
+    def backward(self, dout: NDArray) -> NDArray:
+        dx : NDArray = dout * (1.0 - self.out) * self.out
         return dx
 
 
-class Affine:
-    def __init__(self, W, b):
-        self.W =W
-        self.b = b
+class Affine(Layer):
+    def __init__(self, W: NDArray, b: NDArray):
+        self.W : NDArray = W
+        self.b : NDArray = b
         
-        self.x = None
-        self.original_x_shape = None
-        # 重み・バイアスパラメータの微分
-        self.dW = None
-        self.db = None
+        self.x : Optional[NDArray] = None
+        self.original_x_shape : Optional[Tuple(int, ...)] = None
+        # 重み, バイアスパラメータの微分
+        self.dW : Optional[NDArray] = None
+        self.db : Optional[NDArray] = None
 
-    def forward(self, x):
+    def forward(self, x: NDArray) -> NDArray:
         # テンソル対応
         self.original_x_shape = x.shape
         x = x.reshape(x.shape[0], -1)
         self.x = x
 
-        out = np.dot(self.x, self.W) + self.b
+        out : NDArray = self.x @ self.W + self.b
 
         return out
 
-    def backward(self, dout):
-        dx = np.dot(dout, self.W.T)
-        self.dW = np.dot(self.x.T, dout)
+    def backward(self, dout: NDArray) -> NDArray:
+        dx : NDArray = dout @ self.W.T
+        self.dW = self.x.T @ dout
         self.db = np.sum(dout, axis=0)
         
         dx = dx.reshape(*self.original_x_shape)  # 入力データの形状に戻す（テンソル対応）
         return dx
 
 
-class SoftmaxWithLoss:
+class SoftmaxWithLoss(Layer):
     def __init__(self):
-        self.loss = None
-        self.y = None # softmaxの出力
-        self.t = None # 教師データ
+        self.loss : Optional[float] = None
+        self.y : Optional[NDArray] = None # softmaxの出力
+        self.t : Optional[NDArray] = None # 教師データ
 
-    def forward(self, x, t):
-        self.t = t
-        self.y = softmax(x)
+    def forward(self, x: NDArray, t: NDArray) -> float:
+        self.t : NDArray = t
+        self.y : NDArray = softmax(x)
         self.loss = cross_entropy_error(self.y, self.t)
         
         return self.loss
 
-    def backward(self, dout=1):
-        batch_size = self.t.shape[0]
+    def backward(self, dout=1) -> NDArray:
+        batch_size : int = self.t.shape[0]
         if self.t.size == self.y.size: # 教師データがone-hot-vectorの場合
-            dx = (self.y - self.t) / batch_size
+            dx : NDArray = (self.y - self.t) / batch_size
         else:
             dx = self.y.copy()
             dx[np.arange(batch_size), self.t] -= 1
@@ -111,49 +123,49 @@ class Dropout:
         return dout * self.mask
 
 
-class BatchNormalization:
+class BatchNormalization(Layer):
     """
     http://arxiv.org/abs/1502.03167
     """
-    def __init__(self, gamma, beta, momentum=0.9, running_mean=None, running_var=None):
-        self.gamma = gamma
-        self.beta = beta
-        self.momentum = momentum
-        self.input_shape = None # Conv層の場合は4次元、全結合層の場合は2次元  
+    def __init__(self, gamma: NDArray, beta: NDArray, momentum: float = 0.9, running_mean: Optional[NDArray] = None, running_var: Optional[NDArray] = None):
+        self.gamma : NDArray = gamma
+        self.beta : NDArray = beta
+        self.momentum : float = momentum
+        self.input_shape : Optional[Tuple[int, ...]] = None # Conv層の場合は4次元、全結合層の場合は2次元  s
 
         # テスト時に使用する平均と分散
-        self.running_mean = running_mean
-        self.running_var = running_var  
+        self.running_mean : Optional[NDArray] = running_mean
+        self.running_var : Optional[NDArray] = running_var  
         
         # backward時に使用する中間データ
-        self.batch_size = None
-        self.xc = None
-        self.std = None
-        self.dgamma = None
-        self.dbeta = None
+        self.batch_size : Optional[int] = None
+        self.xc : Optional[NDArray] = None
+        self.std : Optional[NDArray] = None
+        self.dgamma : Optional[NDArray] = None
+        self.dbeta : Optional[NDArray] = None
 
-    def forward(self, x, train_flg=True):
+    def forward(self, x: NDArray, train_flg: bool = True) -> NDArray:
         self.input_shape = x.shape
         if x.ndim != 2:
             N, C, H, W = x.shape
             x = x.reshape(N, -1)
 
-        out = self.__forward(x, train_flg)
+        out : NDArray = self.__forward(x, train_flg)
         
         return out.reshape(*self.input_shape)
             
-    def __forward(self, x, train_flg):
+    def __forward(self, x: NDArray, train_flg: bool) -> NDArray:
         if self.running_mean is None:
             N, D = x.shape
             self.running_mean = np.zeros(D)
             self.running_var = np.zeros(D)
                         
         if train_flg:
-            mu = x.mean(axis=0)
-            xc = x - mu
-            var = np.mean(xc**2, axis=0)
-            std = np.sqrt(var + 10e-7)
-            xn = xc / std
+            mu : NDArray = x.mean(axis=0)
+            xc : NDArray = x - mu
+            var : NDArray = np.mean(xc**2, axis=0)
+            std : NDArray = np.sqrt(var + 10e-7)
+            xn : NDArray = xc / std
             
             self.batch_size = x.shape[0]
             self.xc = xc
@@ -165,22 +177,22 @@ class BatchNormalization:
             xc = x - self.running_mean
             xn = xc / ((np.sqrt(self.running_var + 10e-7)))
             
-        out = self.gamma * xn + self.beta 
+        out : NDArray = self.gamma * xn + self.beta 
         return out
 
-    def backward(self, dout):
+    def backward(self, dout: NDArray) -> NDArray:
         if dout.ndim != 2:
             N, C, H, W = dout.shape
-            dout = dout.reshape(N, -1)
+            dout : NDArray = dout.reshape(N, -1)
 
-        dx = self.__backward(dout)
+        dx : NDArray = self.__backward(dout)
 
         dx = dx.reshape(*self.input_shape)
         return dx
 
-    def __backward(self, dout):
-        dbeta = dout.sum(axis=0)
-        dgamma = np.sum(self.xn * dout, axis=0)
+    def __backward(self, dout: NDArray) -> NDArray:
+        dbeta : NDArray = dout.sum(axis=0)
+        dgamma : NDArray = np.sum(self.xn * dout, axis=0)
         dxn = self.gamma * dout
         dxc = dxn / self.std
         dstd = -np.sum((dxn * self.xc) / (self.std * self.std), axis=0)
@@ -195,7 +207,7 @@ class BatchNormalization:
         return dx
 
 
-class Convolution:
+class Convolution(Layer):
     def __init__(self, W, b, stride=1, pad=0):
         self.W = W
         self.b = b
@@ -243,7 +255,7 @@ class Convolution:
         return dx
 
 
-class Pooling:
+class Pooling(Layer):
     def __init__(self, pool_h, pool_w, stride=2, pad=0):
         self.pool_h = pool_h
         self.pool_w = pool_w

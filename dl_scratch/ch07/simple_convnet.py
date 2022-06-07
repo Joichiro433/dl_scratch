@@ -1,11 +1,8 @@
-# coding: utf-8
-import sys, os
-sys.path.append(os.pardir)  # 親ディレクトリのファイルをインポートするための設定
 import pickle
 import numpy as np
 from collections import OrderedDict
-from common.layers import *
-from common.gradient import numerical_gradient
+from dl_scratch.common.layers import *
+from dl_scratch.common.gradient import numerical_gradient
 
 
 class SimpleConvNet:

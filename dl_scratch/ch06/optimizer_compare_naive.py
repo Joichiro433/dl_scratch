@@ -1,37 +1,43 @@
-# coding: utf-8
-import sys, os
+from typing import List, Dict, Tuple, Optional
+
 import numpy as np
 import matplotlib.pyplot as plt
-from collections import OrderedDict
-from Deep_learning_from_scratch.common.optimizer import *
+import seaborn as sns
+
+from dl_scratch.common.optimizer import *
+
+sns.set_style('whitegrid')
+colors = ['#de3838', '#007bc3', '#ffd12a']
+markers = ['o', 'x', ',']
 
 
-def f(x, y):
+def f(x: float, y: float) -> float:
     return x**2 / 20.0 + y**2
 
 
-def df(x, y):
+def df(x: float, y: float) -> Tuple[float, float]:
     return x / 10.0, 2.0*y
 
-init_pos = (-7.0, 2.0)
-params = {}
+
+init_pos : Tuple[float, float] = (-7.0, 2.0)
+params : Dict[str, float] = {}
 params['x'], params['y'] = init_pos[0], init_pos[1]
-grads = {}
+grads : Dict[str, float] = {}
 grads['x'], grads['y'] = 0, 0
 
 
-optimizers = OrderedDict()
-optimizers["SGD"] = SGD(lr=0.95)
-optimizers["Momentum"] = Momentum(lr=0.1)
-optimizers["AdaGrad"] = AdaGrad(lr=1.5)
-optimizers["Adam"] = Adam(lr=0.3)
+optimizers : Dict[str, Optimizer] = {}
+optimizers['SGD'] = SGD(lr=0.95)
+optimizers['Momentum'] = Momentum(lr=0.1)
+optimizers['AdaGrad'] = AdaGrad(lr=1.5)
+optimizers['Adam'] = Adam(lr=0.3)
 
-idx = 1
+idx : int = 1
 
 for key in optimizers:
-    optimizer = optimizers[key]
-    x_history = []
-    y_history = []
+    optimizer : Optimizer = optimizers[key]
+    x_history : List[float] = []
+    y_history : List[float] = []
     params['x'], params['y'] = init_pos[0], init_pos[1]
     
     for i in range(30):
@@ -55,13 +61,11 @@ for key in optimizers:
     # plot 
     plt.subplot(2, 2, idx)
     idx += 1
-    plt.plot(x_history, y_history, 'o-', color="red")
     plt.contour(X, Y, Z)
+    plt.plot(x_history, y_history, 'o-', color=colors[0], alpha=0.8)
     plt.ylim(-10, 10)
     plt.xlim(-10, 10)
     plt.plot(0, 0, '+')
-    #colorbar()
-    #spring()
     plt.title(key)
     plt.xlabel("x")
     plt.ylabel("y")

@@ -1,14 +1,24 @@
-# coding: utf-8
-import sys, os
-sys.path.append(os.pardir)  # 親ディレクトリのファイルをインポートするための設定
 import numpy as np
+from nptyping import NDArray, Shape, Int, Float
 import matplotlib.pyplot as plt
-from dataset.mnist import load_mnist
-from simple_convnet import SimpleConvNet
-from common.trainer import Trainer
+import seaborn as sns
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
 
-# データの読み込み
-(x_train, t_train), (x_test, t_test) = load_mnist(flatten=False)
+
+from simple_convnet import SimpleConvNet
+from dl_scratch.common.trainer import Trainer
+
+sns.set_style('whitegrid')
+colors = ['#de3838', '#007bc3', '#ffd12a']
+
+
+# MNISTデータの読み込み
+(x_train, t_train), (x_test, t_test) = mnist.load_data()
+t_train : NDArray[Shape['60000, 10'], Int] = to_categorical(t_train)
+t_test : NDArray[Shape['60000, 10'], Int] = to_categorical(t_test)
+x_train : NDArray[Shape['60000, 1, 28, 28'], Float] = (x_train/255).reshape(-1, 1, 28, 28) 
+x_test : NDArray[Shape['60000, 1, 28, 28'], Float] = (x_test/255).reshape(-1 ,1, 28, 28)
 
 # 処理に時間のかかる場合はデータを削減 
 #x_train, t_train = x_train[:5000], t_train[:5000]
