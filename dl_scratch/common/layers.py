@@ -1,4 +1,3 @@
-from turtle import forward
 from typing import Dict, Tuple, Optional
 from abc import ABCMeta, abstractmethod
 
